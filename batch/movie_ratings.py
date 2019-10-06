@@ -17,5 +17,3 @@ with SparkSession \
     ratingsGroupedDF = ratingsExtraColumnDF.groupBy(col('rating')).agg(sum(col('count'))).sort(col('rating'))
 
     ratingsGroupedDF.show()
-
-    print(spark)
