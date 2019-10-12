@@ -1,24 +1,21 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructField,StringType,StructType
 from pyspark.sql.functions import split,col, explode, lit,sum
 from sys import argv
 
 if __name__ == '__main__':
     with SparkSession.builder.appName('SimpleWordCountStreamingApp').getOrCreate() as spark:
 
+        # Source DataFrame which will read the data from the web socket running
+        # on the server. Both the server and host name will be provided on the command line.
+        # Important thing to note here is that socket source doesn't support user defined
+        # schema.
 
-        schema_data = "line "
-        fields = [StructField(field_name, StringType(), True) for field_name in schema_data.split()]
-
-        # Create the schema for tha DataFrame.
-        my_schema = StructType(fields)
-
-        # Source DataFrame after loading the text file.
+        # e.g. you can use netcat to act as a data server. nc -lk 1234
         source_df = spark.\
                     readStream.\
                     format('socket').\
-                    option('host', '172.16.33.109').\
-                    option('port', '1234').\
+                    option('host', argv[1]).\
+                    option('port', argv[2]).\
                     load()
 
         # Transformed DataFrame after applying the split onto the row to convert
@@ -33,17 +30,18 @@ if __name__ == '__main__':
         # to the DataFrame.
         # source_df_split_explode_with_count_column = source_df_split_explode.withColumn('count', lit(1))
 
-        # Final transformed DataFrame after applying groupBy and sum aggregation onto the
+        #  Transformed DataFrame after applying groupBy and sum aggregation onto the
         # DataFrame
         output_df = source_df_split_explode.groupBy(col('word')).count()
 
-        # stream
+        # Final streaming data frame is created after setting up the sink properties.
+        # possible modes are complete , append and update.
         streaming_df = output_df.\
                        writeStream.\
                        outputMode('complete').\
                        format('console').\
                        start()
 
-
+        # It will prevent the process from exiting while query is active.
         streaming_df.awaitTermination()
 
